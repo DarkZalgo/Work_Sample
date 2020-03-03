@@ -5,6 +5,7 @@ import argparse
 import subprocess
 import datetime
 import getpass
+import re
 
 try:
     import nmap
@@ -34,37 +35,41 @@ except ModuleNotFoundError:
 def main():
     ports = ""
     hosts = ""
-    prnt = False
+    print_check = False
     command = ""
     log = ""
 
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(
+        description="attack_scan is a combination network scanner and attack automator. "
+        "It can be used to automate network attacks or vulnerability tests "
+        "across multiple hosts and ports using nmap to scan and user given "
+        "command to execute across the found network."
+    )
 
     parser.add_argument(
         "-cmd",
         metavar="-command",
         type=str,
-        help="Full command in quotes for attack_scan to run on open found IP addresses"
-        ' Example: -cmd "nikto -tuning 89 -host "'
+        help="Full command in quotes for attack_scan to run on open found IP addresses, replace the IP address"
+        " in the command to be automated with HOST and port with PORT "
+        ' Example: -cmd "nikto -Tuning 89 -host HOST -p PORT"'
         "",
     )
     parser.add_argument("-print", action="store_true", help="Prints the scan")
     parser.add_argument(
         "-p",
         metavar="-port",
-        # nargs="+",
         type=str,
-        help="Set ports, can use range Example -p 22-443 default is top 1000 ports, if port is found, will "
-             "send attack to that port",
+        help="Set ports to scan, default is top 1000 ports",
     )
     parser.add_argument(
-        "-t",
-        metavar="-target",
-        type=str,
-        help="Target IP address or range",
+        "-t", metavar="-target", type=str, help="Target IP address or range"
     )
     parser.add_argument(
-        "-log", metavar="-log", type=str, help="Directory to send logs to"
+        "-log",
+        type=str,
+        help="Directory to send logs to, if unspecified goes to "
+        "/root/attack_scan_logs or if non root /home/user/attack_scan_logs",
     )
     if not len(sys.argv[1:]):
         parser.print_help()
@@ -76,26 +81,29 @@ def main():
         if args.t:
             hosts = args.t
         if args.print:
-            prnt = args.print
+            print_check = args.print
         if args.cmd:
             command = str(args.cmd)
         if args.log:
             log = args.log
 
-    except Exception as e:
+    except argparse.ArgumentError as e:
         print(e)
+        parser.print_usage()
 
     print("Scanning...")
     nm = scan(str(ports), str(hosts))
-    ready = input("Ready to attack? Y/N\n")
-    if ready.lower() == "y" or ready.lower() == "yes":
+    print("Scan complete")
+    if print_check:
+        print_scan(nm)
+    else:
+        if input("Would you like to print scan results? Y/N").lower() == "y":
+            print_scan(nm)
+    if input("Ready to attack? Y/N\n").lower() == "y":
         do_attack(nm, str(command), str(log))
     else:
         print("Not ready to attack, terminating program")
         exit(0)
-
-    if prnt:
-        print_scan(nm)
 
 
 def scan(ports, hosts):
@@ -108,7 +116,6 @@ def scan(ports, hosts):
 
 
 def print_scan(nm):
-    print(nm.all_hosts())
     for host in nm.all_hosts():
         print("-------------------------------")
         print("Host : %s (%s)" % (host, nm[host].hostname()))
@@ -143,12 +150,13 @@ def do_attack(nm, command, log):
     for host in nm.all_hosts():
         for protocol in nm[host].all_protocols():
             for port in nm[host][protocol].keys():
-
-                if "nikto" in command:
-                    command = base_command + " -host " + host + " -p " + str(port)
-                    print(command)
+                command = re.sub("HOST", host, base_command)
+                command = re.sub("PORT", str(port), command)
+                print(command)
 
                 subprocess.Popen(command, stdout=out, shell=True).wait()
+    out.close()
+    print("\nAttack complete")
 
 
 def create_log(log):
@@ -156,7 +164,7 @@ def create_log(log):
         log_dir = log
         now = datetime.datetime.now()
         out = open(
-            log_dir + "/ATK_OUT_LOG" + now.strftime("%Y-%m-%d--%H-%M-%S") + ".txt", "a"
+            log_dir + "/atk_out" + now.strftime("%Y-%m-%d--%H-%M-%S") + ".log", "a"
         )
         out.write("STDOUT FILE FOR " + now.strftime("%Y-%m-%d--%H-%M-%S") + " ATTACK")
         out.flush()
