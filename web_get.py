@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-#John Cummings
-#ACO 330
 
 import socket
 import sys
