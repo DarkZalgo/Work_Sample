@@ -1,7 +1,7 @@
 
 cronsched.py is a crontab scheduler that can be used to set a crontab to run for specific users at specific times
 
-attack_scan.py is a scanner and attack automator using nmap that currently only works automating nikto scans but can be used over a large number of hosts and ports
+attack_scan.py is a scanner and attack automator using nmap that now works with any command where the user supplies a host and port
 
 web_get.py is my interpretation of the wget command using only the socket, sys, and os libraries that I created for my Computer Networks class (ACO330)
 
